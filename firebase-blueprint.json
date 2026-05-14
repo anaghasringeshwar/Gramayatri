@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "Route": {
+      "title": "Route",
+      "description": "A bus route consisting of multiple stops.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "stops": {
+          "type": "array",
+          "items": {
+            "$ref": "#/entities/Stop"
+          }
+        },
+        "active": { "type": "boolean" }
+      },
+      "required": ["name", "stops"]
+    },
+    "Stop": {
+      "title": "Stop",
+      "description": "A specific stop on a route.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "avgTimeFromPrev": { "type": "number", "description": "Average minutes from the previous stop" }
+      },
+      "required": ["id", "name", "avgTimeFromPrev"]
+    },
+    "Ping": {
+      "title": "Ping",
+      "description": "A real-time status update from a user on a bus.",
+      "type": "object",
+      "properties": {
+        "routeId": { "type": "string" },
+        "stopId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" }
+      },
+      "required": ["routeId", "stopId", "timestamp", "userId"]
+    },
+    "Alert": {
+      "title": "Alert",
+      "description": "A user-reported alert about a route.",
+      "type": "object",
+      "properties": {
+        "routeId": { "type": "string" },
+        "type": { "type": "string", "enum": ["delay", "cancel", "other"] },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" }
+      },
+      "required": ["routeId", "type", "message", "timestamp", "userId"]
+    }
+  },
+  "firestore": {
+    "/routes": {
+      "schema": "Route",
+      "description": "List of available bus routes"
+    },
+    "/pings": {
+      "schema": "Ping",
+      "description": "Crowdsourced pings for bus status"
+    },
+    "/alerts": {
+      "schema": "Alert",
+      "description": "Community alerts for routes"
+    }
+  }
+}

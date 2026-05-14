@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isVerified() && request.auth.token.email == 'anaghasringeshwar@gmail.com';
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entities Validation
+    
+    function isValidRoute(data) {
+      return data.keys().hasAll(['name', 'stops']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.stops is list && data.stops.size() <= 50;
+    }
+
+    function isValidPing(data) {
+      return data.keys().hasAll(['routeId', 'stopId', 'timestamp', 'userId', 'userName']) &&
+             isValidId(data.routeId) &&
+             isValidId(data.stopId) &&
+             data.timestamp == request.time &&
+             data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 100;
+    }
+
+    function isValidAlert(data) {
+      return data.keys().hasAll(['routeId', 'type', 'message', 'timestamp', 'userId', 'userName']) &&
+             isValidId(data.routeId) &&
+             data.type in ['delay', 'cancel', 'other'] &&
+             data.message is string && data.message.size() <= 500 &&
+             data.timestamp == request.time &&
+             data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() <= 100;
+    }
+
+    // Collections
+    
+    match /routes/{routeId} {
+      allow read: if true; // Publicly readable
+      allow write: if isAdmin() && isValidRoute(incoming());
+    }
+
+    match /pings/{pingId} {
+      allow read: if true;
+      allow create: if isVerified() && isValidPing(incoming());
+      allow update, delete: if false; // Pings are immutable
+    }
+
+    match /alerts/{alertId} {
+      allow read: if true;
+      allow create: if isVerified() && isValidAlert(incoming());
+      allow update, delete: if false; // Alerts are immutable
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Grama-Yatri",
+  "description": "A community-powered bus tracking app for rural villages with real-time crowdsourced pings and ETA calculation.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
