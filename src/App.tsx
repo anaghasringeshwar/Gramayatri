@@ -460,7 +460,30 @@ export default function App() {
 
   const signIn = async () => {
     const provider = new GoogleAuthProvider();
-    try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); }
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
+    try { 
+      // If we are on a native device/emulator, popups are often blocked or fail.
+      // signInWithRedirect is generally safer for mobile web views.
+      const isNative = window.location.hostname === 'localhost' || window.location.protocol === 'capacitor:';
+      
+      if (isNative) {
+        await signInWithPopup(auth, provider); // Try popup first as it works in some setups
+      } else {
+        await signInWithPopup(auth, provider); 
+      }
+    } catch (e: any) { 
+      console.error('Sign-in error:', e);
+      if (e.code === 'auth/operation-not-allowed') {
+        alert("Google Sign-In is not enabled in your Firebase Console. Go to Authentication -> Sign-in method and enable Google.");
+      } else if (e.code === 'auth/invalid-action-code' || e.message?.includes('requested action is invalid')) {
+        alert("CRITICAL FOR DEADLINE: To fix sign-in on Android, you MUST copy your SHA-1 from Android Studio and add it to Firebase Console -> Project Settings. Currently, Firebase is rejecting your phone because it doesn't recognize the app. Use the shared URL if you need a working version right now!");
+      } else if (e.code === 'auth/popup-closed-by-user') {
+        // Silently handle
+      } else {
+        alert(`Sign-in failed: ${e.message}. Re-check your Firebase config!`);
+      }
+    }
   };
 
   const logOut = async () => {

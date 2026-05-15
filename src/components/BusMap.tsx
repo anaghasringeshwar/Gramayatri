@@ -3,7 +3,7 @@ import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from '@
 import { Route, Ping } from '../types';
 import { Bus, MapPin } from 'lucide-react';
 
-const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
+const API_KEY = (import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY as string) || '';
 const isPlaceholder = API_KEY === 'MY_GOOGLE_MAPS_PLATFORM_KEY' || API_KEY === 'YOUR_API_KEY';
 const hasValidKey = Boolean(API_KEY) && !isPlaceholder;
 
@@ -49,9 +49,14 @@ export default function BusMap({ selectedRoute, latestPing }: { selectedRoute: R
         <h3 className="font-display font-black text-slate-800 uppercase tracking-tight mb-4">Map Integration Required</h3>
         <p className="text-sm text-slate-500 max-w-xs mb-6 font-medium">To see the live bus route on a map, please add your Google Maps API key.</p>
         <div className="text-left text-xs bg-white p-4 rounded-lg border border-slate-200 shadow-sm space-y-2">
-          <p><strong>Step 1:</strong> Get a key from Google Cloud Console</p>
-          <p><strong>Step 2:</strong> Go to <strong>Settings</strong> (⚙️ icon) → <strong>Secrets</strong></p>
-          <p><strong>Step 3:</strong> Add <code>GOOGLE_MAPS_PLATFORM_KEY</code></p>
+          <p className="font-bold text-amber-600 italic">Android Debugging Tips:</p>
+          <p>1. If maps don't show on phone, ensure <code>VITE_GOOGLE_MAPS_PLATFORM_KEY</code> is set in your <code>.env</code>.</p>
+          <p>2. Run <code>npm run build</code> and <code>npx cap sync</code> from the <strong>root folder</strong> (not the android folder).</p>
+          <p>3. If sign-in fails, you <strong>must</strong> add your SHA-1 to Firebase Console settings.</p>
+          <div className="mt-4 pt-2 border-t border-slate-100">
+            <p className="text-[10px] text-slate-400">Share this link for your internship:</p>
+            <code className="block p-1 bg-slate-50 rounded text-blue-600 select-all">https://ais-pre-5hnnm6fzmtmzs3fvjmodvl-749786148202.asia-southeast1.run.app</code>
+          </div>
         </div>
       </div>
     );
