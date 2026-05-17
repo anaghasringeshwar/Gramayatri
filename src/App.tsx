@@ -21,10 +21,76 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
 import { db, auth } from './firebase';
 import { seedRoutes } from './seed';
-import { Route, Stop, Ping, Alert, OperationType } from './types';
+import { Route, Stop, Ping, Alert, OperationType, Language, LocalUser } from './types';
 import { handleFirestoreError } from './lib/firestoreUtils';
 import { cn } from './lib/utils';
 import BusMap from './components/BusMap';
+import PRDModal from './components/PRDModal';
+import WelcomeScreen from './components/WelcomeScreen';
+import { FileText, Globe } from 'lucide-react';
+
+// --- Translations ---
+
+const TRANSLATIONS = {
+  en: {
+    appTitle: 'Grama-Yatri',
+    tagline: 'CROWDSOURCED RURAL TRANSIT',
+    searchPlaceholder: 'SEARCH ROUTES OR VILLAGES...',
+    noRoutes: 'No routes found matching your search',
+    routeProgress: 'Route Progress',
+    stopsTotal: 'STOPS TOTAL',
+    liveNow: 'Live Now',
+    eta: 'ETA',
+    trek: 'min trek',
+    busDeparted: 'Bus Departed',
+    lastUpdateBy: 'Last update by',
+    estimatedArrival: 'Estimated Arrival',
+    boundFor: 'BOUND FOR',
+    waiting: 'WAITING',
+    away: 'KM AWAY',
+    helpCommunity: 'Help the Community',
+    onBusDesc: 'If you are traveling on this bus, update current location for other villagers.',
+    onBusBtn: 'I AM ON THE BUS',
+    selectStop: 'SELECT STOP',
+    anonymous: 'Anonymous • Encrypted • Geo-Verified',
+    cancelled: 'CANCELLED',
+    delayed: 'DELAYED',
+    streams: 'STREAMS: LIVE',
+    latency: 'LATENCY: 24ms',
+    footerDesc: 'Digital Mobility for Rural India • Open Source Community',
+    start: 'START',
+    finish: 'FINISH',
+  },
+  kn: {
+    appTitle: 'ಗ್ರಾಮ-ಯಾತ್ರಿ',
+    tagline: 'ಗ್ರಾಮೀಣ ಸಾರ್ವಜನಿಕ ಸಾರಿಗೆ ವ್ಯವಸ್ಥೆ',
+    searchPlaceholder: 'ಮಾರ್ಗಗಳು ಅಥವಾ ಹಳ್ಳಿಗಳನ್ನು ಹುಡುಕಿ...',
+    noRoutes: 'ಯಾವುದೇ ಮಾರ್ಗಗಳು ಕಂಡುಬಂದಿಲ್ಲ',
+    routeProgress: 'ಮಾರ್ಗದ ಪ್ರಗತಿ',
+    stopsTotal: 'ಒಟ್ಟು ನಿಲ್ದಾಣಗಳು',
+    liveNow: 'ಈಗ ಇಲ್ಲಿ',
+    eta: 'ಬರುವ ಸಮಯ',
+    trek: 'ನಿಮಿಷ ಪ್ರಯಾಣ',
+    busDeparted: 'ಬಸ್ ಹೋದಿದೆ',
+    lastUpdateBy: 'ಕೊನೆಯ ಅಪ್ಡೇಟ್',
+    estimatedArrival: 'ಬರುವ ಅಂದಾಜು ಸಮಯ',
+    boundFor: 'ಪ್ರಯಾಣದ ದಿಕ್ಕು',
+    waiting: 'ಕಾಯುತ್ತಿದೆ',
+    away: 'ಕಿಮೀ ದೂರದಲ್ಲಿದೆ',
+    helpCommunity: 'ಸಮುದಾಯಕ್ಕೆ ನೆರವಾಗಿ',
+    onBusDesc: 'ನೀವು ಈ ಬಸ್ಸಿನಲ್ಲಿ ಪ್ರಯಾಣಿಸುತ್ತಿದ್ದರೆ, ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಮಾಹಿತಿಯನ್ನು ಹಂಚಿಕೊಳ್ಳಿ.',
+    onBusBtn: 'ನಾನು ಬಸ್ಸಿನಲ್ಲಿದ್ದೇನೆ',
+    selectStop: 'ನಿಲ್ದಾಣವನ್ನು ಆರಿಸಿ',
+    anonymous: 'ಅನಾಮಧೇಯ • ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಲಾದ • ಜಿಯೋ-ಪರಿಶೀಲಿಸಿದ',
+    cancelled: 'ರದ್ದುಗೊಳಿಸಲಾಗಿದೆ',
+    delayed: 'ತಡವಾಗಿದೆ',
+    streams: 'ಲೈವ್ ಸ್ಟ್ರೀಮ್ ಲಭ್ಯವಿದೆ',
+    latency: 'ಲ್ಯಾಟೆನ್ಸಿ: 24ms',
+    footerDesc: 'ಗ್ರಾಮೀಣ ಭಾರತಕ್ಕಾಗಿ ಡಿಜಿಟಲ್ ಮೊಬಿಲಿಟಿ • ಓಪನ್ ಸೋರ್ಸ್ ಸಮುದಾಯ',
+    start: 'ಪ್ರಾರಂಭ',
+    finish: 'ಕೊನೆಯ',
+  }
+};
 
 // --- Utilities ---
 
@@ -42,68 +108,63 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 // --- Context ---
 
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  signIn: () => Promise<void>;
-  logOut: () => Promise<void>;
+interface AppContextType {
+  user: LocalUser | null;
+  language: Language;
+  setLanguage: (l: Language) => void;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 }
 
 // --- Components ---
 
 function Header() {
-  const { user, signIn, logOut } = useAuth();
+  const { user, language, setLanguage, logout } = useApp();
+  const t = TRANSLATIONS[language];
 
   return (
     <header className="bg-emerald-900 text-white p-6 shadow-md border-b border-emerald-800">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 text-left">
           <div className="w-10 h-10 bg-emerald-400 rounded-lg flex items-center justify-center font-black text-emerald-900 text-xl font-display">
             GY
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tighter uppercase font-display leading-none">Grama-Yatri</h1>
-            <p className="text-[10px] text-emerald-300 font-bold tracking-[0.2em] mt-1">CROWDSOURCED RURAL TRANSIT</p>
+            <h1 className="text-2xl font-black tracking-tighter uppercase font-display leading-none">{t.appTitle}</h1>
+            <p className="text-[10px] text-emerald-300 font-bold tracking-[0.2em] mt-1">{t.tagline}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-6">
-          {user ? (
+          <button 
+            onClick={() => setLanguage(language === 'en' ? 'kn' : 'en')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-800 border border-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
+          >
+            <Globe size={12} />
+            {language === 'en' ? 'KANNADA' : 'ENGLISH'}
+          </button>
+          
+          {user && (
             <div className="flex items-center gap-4 pl-6 border-l border-emerald-800">
               <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-white uppercase tracking-tight">{user.displayName}</p>
+                <p className="text-xs font-bold text-white uppercase tracking-tight">{user.name}</p>
                 <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest leading-none mt-0.5">Contributor</p>
               </div>
-              <img 
-                src={user.photoURL || ''} 
-                alt="User" 
-                className="w-10 h-10 rounded-lg border-2 border-emerald-700 object-cover shadow-inner"
-                referrerPolicy="no-referrer"
-              />
               <button 
-                onClick={logOut} 
+                onClick={logout} 
                 className="p-2.5 bg-emerald-800/50 hover:bg-red-500/20 text-emerald-300 hover:text-red-400 rounded-lg transition-all border border-emerald-700/50 flex items-center justify-center shadow-lg"
                 title="Sign Out"
               >
                 <LogOut size={18} />
               </button>
             </div>
-          ) : (
-            <button 
-              onClick={signIn}
-              className="px-6 py-2.5 bg-emerald-400 text-emerald-900 text-sm font-bold rounded-lg shadow-lg shadow-emerald-900/50 hover:bg-emerald-300 transition-all flex items-center gap-2 uppercase tracking-wide"
-            >
-              <UserIcon size={16} />
-              Sign In
-            </button>
           )}
         </div>
       </div>
@@ -144,11 +205,14 @@ function AlertBanner({ alerts, routeId }: { alerts: Alert[], routeId?: string })
 }
 
 function RouteSelector({ routes, selectedRoute, onSelect }: { routes: Route[], selectedRoute: Route | null, onSelect: (r: Route) => void }) {
+  const { language } = useApp();
+  const t = TRANSLATIONS[language];
   const [search, setSearch] = useState('');
   
   const filteredRoutes = routes.filter(r => 
     r.name.toLowerCase().includes(search.toLowerCase()) ||
-    r.stops.some(s => s.name.toLowerCase().includes(search.toLowerCase()))
+    (r.nameKn && r.nameKn.includes(search)) ||
+    r.stops.some(s => s.name.toLowerCase().includes(search.toLowerCase()) || (s.nameKn && s.nameKn.includes(search)))
   );
 
   return (
@@ -156,7 +220,7 @@ function RouteSelector({ routes, selectedRoute, onSelect }: { routes: Route[], s
       <div className="relative">
         <input 
           type="text"
-          placeholder="SEARCH ROUTES OR VILLAGES..."
+          placeholder={t.searchPlaceholder}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full bg-white border border-slate-200 rounded-xl px-12 py-3 text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all shadow-sm"
@@ -178,11 +242,11 @@ function RouteSelector({ routes, selectedRoute, onSelect }: { routes: Route[], s
                 : "bg-white border-slate-200 text-slate-500 hover:border-slate-400"
             )}
           >
-            {route.name}
+            {language === 'kn' && route.nameKn ? route.nameKn : route.name}
           </button>
         ))}
         {filteredRoutes.length === 0 && (
-          <p className="text-[10px] text-slate-400 font-bold uppercase py-2">No routes found matching your search</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase py-2">{t.noRoutes}</p>
         )}
       </div>
     </div>
@@ -190,6 +254,8 @@ function RouteSelector({ routes, selectedRoute, onSelect }: { routes: Route[], s
 }
 
 function BusTimeline({ route, latestPing }: { route: Route, latestPing: Ping | null }) {
+  const { language } = useApp();
+  const t = TRANSLATIONS[language];
   const currentStopIndex = latestPing ? route.stops.findIndex(s => s.id === latestPing.stopId) : -1;
   const progressPercent = route.stops.length > 1 ? (Math.max(0, currentStopIndex) / (route.stops.length - 1)) * 100 : 0;
 
@@ -209,8 +275,8 @@ function BusTimeline({ route, latestPing }: { route: Route, latestPing: Ping | n
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 overflow-hidden relative min-h-[500px]">
       <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
-        <div>
-          <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Route Progress</h2>
+        <div className="text-left">
+          <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">{t.routeProgress}</h2>
           <div className="mt-2 w-32 h-1 bg-slate-200 rounded-full overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
@@ -219,7 +285,7 @@ function BusTimeline({ route, latestPing }: { route: Route, latestPing: Ping | n
             />
           </div>
         </div>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{route.stops.length} STOPS TOTAL</span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{route.stops.length} {t.stopsTotal}</span>
       </div>
 
       <div className="absolute left-[81px] top-28 bottom-12 w-1 bg-slate-100 hidden sm:block" />
@@ -237,7 +303,7 @@ function BusTimeline({ route, latestPing }: { route: Route, latestPing: Ping | n
           return (
             <div key={stop.id} className={cn("flex items-start gap-6 transition-all duration-500", hasPassed && "opacity-40 grayscale-[0.5]")}>
               <div className="w-14 text-right text-[10px] font-mono pt-1 text-slate-400 font-bold uppercase">
-                {index === 0 ? "START" : index === route.stops.length - 1 ? "FINISH" : `${index}`}
+                {index === 0 ? t.start : index === route.stops.length - 1 ? t.finish : `${index}`}
               </div>
               
               <div className={cn(
@@ -251,25 +317,25 @@ function BusTimeline({ route, latestPing }: { route: Route, latestPing: Ping | n
               </div>
               
               <div className={cn(
-                "flex-1 transition-all",
+                "flex-1 transition-all text-left",
                 isAtStop && "p-5 bg-emerald-50 rounded-xl border border-emerald-100 -mt-2 shadow-sm"
               )}>
                 <div className="flex justify-between items-start mb-0.5">
                   <h3 className={cn("font-black tracking-tight uppercase", isAtStop ? "text-emerald-900 text-lg" : "text-slate-800")}>
-                    {stop.name}
+                    {language === 'kn' && stop.nameKn ? stop.nameKn : stop.name}
                   </h3>
                   {isAtStop && (
-                    <span className="bg-emerald-200 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">Live Now</span>
+                    <span className="bg-emerald-200 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter">{t.liveNow}</span>
                   )}
                   {eta && (
                     <div className="text-right">
-                      <span className="text-[10px] font-mono text-emerald-600 font-black animate-pulse">ETA: {eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-[10px] font-mono text-emerald-600 font-black animate-pulse">{t.eta}: {eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="text-[10px] text-slate-500 font-bold tracking-tight uppercase">
-                    {isAtStop ? `Last update by @${latestPing.userName}` : hasPassed ? "Bus Departed" : `${stop.avgTimeFromPrev} min trek`}
+                    {isAtStop ? `${t.lastUpdateBy} @${latestPing.userName}` : hasPassed ? t.busDeparted : `${stop.avgTimeFromPrev} ${t.trek}`}
                   </p>
                   {distFromPrev && (
                     <span className="text-[10px] text-slate-300 font-bold">• {distFromPrev} KM</span>
@@ -285,6 +351,8 @@ function BusTimeline({ route, latestPing }: { route: Route, latestPing: Ping | n
 }
 
 function StatCard({ eta, latestPing, route }: { eta: Date | null, latestPing: Ping | null, route: Route }) {
+  const { language } = useApp();
+  const t = TRANSLATIONS[language];
   const nextStopIndex = latestPing ? route.stops.findIndex(s => s.id === latestPing.stopId) + 1 : -1;
   const nextStop = nextStopIndex > 0 && nextStopIndex < route.stops.length ? route.stops[nextStopIndex] : null;
   const currentStop = latestPing ? route.stops.find(s => s.id === latestPing.stopId) : null;
@@ -294,9 +362,9 @@ function StatCard({ eta, latestPing, route }: { eta: Date | null, latestPing: Pi
     : null;
 
   return (
-    <div className="bg-emerald-600 text-white rounded-xl p-8 shadow-xl shadow-emerald-200 border-b-4 border-emerald-700 relative overflow-hidden transition-all hover:translate-y-[-2px]">
+    <div className="bg-emerald-600 text-white rounded-xl p-8 shadow-xl shadow-emerald-200 border-b-4 border-emerald-700 relative overflow-hidden transition-all hover:translate-y-[-2px] text-left">
       <div className="relative z-10">
-        <p className="text-emerald-200 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Estimated Arrival</p>
+        <p className="text-emerald-200 text-[10px] font-black uppercase tracking-[0.2em] mb-2">{t.estimatedArrival}</p>
         <div className="flex items-baseline gap-2">
           <h2 className="text-7xl font-black font-display tracking-tighter">
             {eta ? eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(/ AM| PM/, '') : '--:--'}
@@ -308,12 +376,12 @@ function StatCard({ eta, latestPing, route }: { eta: Date | null, latestPing: Pi
         <div className="mt-8 pt-6 border-t border-emerald-500/50">
           <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider">
             <div className="flex flex-col">
-              <span className="text-emerald-300 text-[9px] mb-1">BOUND FOR</span>
-              <span>{nextStop ? nextStop.name : "No Active Pings"}</span>
+              <span className="text-emerald-300 text-[9px] mb-1">{t.boundFor}</span>
+              <span>{nextStop ? (language === 'kn' && nextStop.nameKn ? nextStop.nameKn : nextStop.name) : "No Active Pings"}</span>
             </div>
             <div className="text-right">
               <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-black">
-                {distanceToNext ? `${distanceToNext} KM AWAY` : "WAITING"}
+                {distanceToNext ? `${distanceToNext} ${t.away}` : t.waiting}
               </span>
             </div>
           </div>
@@ -324,7 +392,9 @@ function StatCard({ eta, latestPing, route }: { eta: Date | null, latestPing: Pi
   );
 }
 
-function ActionCard({ user, route, onPing }: { user: User | null, route: Route, onPing: (stopId: string) => void }) {
+function ActionCard({ user, route, onPing }: { user: LocalUser | null, route: Route, onPing: (stopId: string) => void }) {
+  const { language } = useApp();
+  const t = TRANSLATIONS[language];
   const [showStopList, setShowStopList] = useState(false);
 
   return (
@@ -333,64 +403,68 @@ function ActionCard({ user, route, onPing }: { user: User | null, route: Route, 
         📍
       </div>
       <div>
-        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Help the Community</h3>
+        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">{t.helpCommunity}</h3>
         <p className="text-sm text-slate-500 mt-2 font-medium leading-relaxed">
-          If you are traveling on this bus, update current location for other villagers.
+          {t.onBusDesc}
         </p>
       </div>
 
-      {!user ? (
-        <p className="text-[10px] text-slate-400 font-bold uppercase py-4">Please sign in to contribute</p>
-      ) : (
-        <div className="w-full relative">
-          <button 
-            onClick={() => setShowStopList(!showStopList)}
-            className="w-full py-4 bg-slate-900 text-white rounded-xl font-black text-lg hover:bg-emerald-600 transition-all shadow-lg shadow-slate-200 active:scale-[0.98] uppercase tracking-wide"
-          >
-            {showStopList ? "SELECT STOP" : "I AM ON THE BUS"}
-          </button>
-          
-          <AnimatePresence>
-            {showStopList && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl p-2 max-h-60 overflow-y-auto custom-scrollbar z-50"
-              >
-                {route.stops.map(stop => (
-                  <button
-                    key={stop.id}
-                    onClick={() => { onPing(stop.id); setShowStopList(false); }}
-                    className="w-full p-4 text-left font-bold text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors border-b last:border-0 border-slate-50"
-                  >
-                    {stop.name}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Anonymous • Encrypted • Geo-Verified</p>
+      <div className="w-full relative">
+        <button 
+          onClick={() => setShowStopList(!showStopList)}
+          className="w-full py-4 bg-slate-900 text-white rounded-xl font-black text-lg hover:bg-emerald-600 transition-all shadow-lg shadow-slate-200 active:scale-[0.98] uppercase tracking-wide px-4"
+        >
+          {showStopList ? t.selectStop : t.onBusBtn}
+        </button>
+        
+        <AnimatePresence>
+          {showStopList && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 rounded-xl shadow-2xl p-2 max-h-60 overflow-y-auto custom-scrollbar z-50"
+            >
+              {route.stops.map(stop => (
+                <button
+                  key={stop.id}
+                  onClick={() => { onPing(stop.id); setShowStopList(false); }}
+                  className="w-full p-4 text-left font-bold text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors border-b last:border-0 border-slate-50"
+                >
+                  {language === 'kn' && stop.nameKn ? stop.nameKn : stop.name}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">{t.anonymous}</p>
     </div>
   );
 }
 
-function Footer() {
+function Footer({ onOpenPRD }: { onOpenPRD: () => void }) {
+  const { language } = useApp();
+  const t = TRANSLATIONS[language];
   return (
     <footer className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-8 text-slate-400 border-t border-slate-100 mt-12 bg-white/50 backdrop-blur-sm rounded-t-[3rem]">
       <div className="flex gap-4 items-center flex-wrap justify-center">
-        <span className="text-[10px] font-mono bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-full font-black border border-emerald-100">STREAMS: LIVE</span>
-        <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full font-bold">LATENCY: 24ms</span>
-        <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full font-bold">UPTIME: 99.9%</span>
+        <button 
+          onClick={onOpenPRD}
+          className="text-[10px] font-mono bg-emerald-600 text-white px-4 py-2 rounded-full font-black border border-emerald-500 shadow-lg shadow-emerald-200 hover:scale-105 transition-all flex items-center gap-2"
+        >
+          <FileText size={12} />
+          GENERATE PRD (PDF)
+        </button>
+        <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full font-bold uppercase">{t.streams}</span>
+        <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-3 py-1.5 rounded-full font-bold uppercase">{t.latency}</span>
       </div>
       <div className="flex flex-col items-center md:items-end">
         <div className="text-[10px] font-black uppercase tracking-widest text-slate-900 mb-1">
-          Grama-Yatri v1.3.0
+          Grama-Yatri v1.4.0
         </div>
         <div className="text-[9px] font-bold uppercase tracking-tight text-slate-400">
-          Digital Mobility for Rural India • Open Source Community
+          {t.footerDesc}
         </div>
       </div>
     </footer>
@@ -400,20 +474,19 @@ function Footer() {
 // --- Main App ---
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState<LocalUser | null>(() => {
+    const saved = localStorage.getItem('gy_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [language, setLanguage] = useState<Language>(user?.language || 'en');
   const [routes, setRoutes] = useState<Route[]>([]);
   const [pings, setPings] = useState<Ping[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [appLoading, setAppLoading] = useState(true);
+  const [isPRDOpen, setIsPRDOpen] = useState(false);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthLoading(false);
-    });
-
     // Start seeding in background
     seedRoutes();
 
@@ -427,30 +500,38 @@ export default function App() {
       setAppLoading(false);
     }, (err) => {
       console.error('Routes Listener Error:', err);
-      // Even if there is an error, stop the loading screen so user can see UI
       setAppLoading(false);
     });
 
-    const unsubPings = onSnapshot(query(collection(db, 'pings'), orderBy('timestamp', 'desc'), limit(50)), (snap) => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const unsubPings = onSnapshot(query(
+      collection(db, 'pings'), 
+      where('timestamp', '>=', yesterday),
+      orderBy('timestamp', 'desc'), 
+      limit(100)
+    ), (snap) => {
       setPings(snap.docs.map(d => ({ id: d.id, ...d.data() } as Ping)));
     }, (err) => {
       console.error('Pings Listener Error:', err);
     });
 
-    const unsubAlerts = onSnapshot(query(collection(db, 'alerts'), orderBy('timestamp', 'desc'), limit(20)), (snap) => {
+    const unsubAlerts = onSnapshot(query(
+      collection(db, 'alerts'), 
+      where('timestamp', '>=', yesterday),
+      orderBy('timestamp', 'desc'), 
+      limit(50)
+    ), (snap) => {
       setAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Alert)));
     }, (err) => {
       console.error('Alerts Listener Error:', err);
     });
 
-    // Safety timeout: If app finishes auth but still "loading" app data after 4 seconds,
-    // just show the UI anyway (maybe DB is empty)
     const timer = setTimeout(() => {
       setAppLoading(false);
     }, 4000);
 
     return () => {
-      unsubAuth();
       unsubRoutes();
       unsubPings();
       unsubAlerts();
@@ -458,50 +539,25 @@ export default function App() {
     };
   }, []);
 
-  const signIn = async () => {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    
-    try { 
-      // If we are on a native device/emulator, popups are often blocked or fail.
-      // signInWithRedirect is generally safer for mobile web views.
-      const isNative = window.location.hostname === 'localhost' || window.location.protocol === 'capacitor:';
-      
-      if (isNative) {
-        await signInWithPopup(auth, provider); // Try popup first as it works in some setups
-      } else {
-        await signInWithPopup(auth, provider); 
-      }
-    } catch (e: any) { 
-      console.error('Sign-in error:', e);
-      if (e.code === 'auth/operation-not-allowed') {
-        alert("Google Sign-In is not enabled in your Firebase Console. Go to Authentication -> Sign-in method and enable Google.");
-      } else if (e.code === 'auth/invalid-action-code' || e.message?.includes('requested action is invalid')) {
-        alert("CRITICAL FOR DEADLINE: To fix sign-in on Android, you MUST copy your SHA-1 from Android Studio and add it to Firebase Console -> Project Settings. Currently, Firebase is rejecting your phone because it doesn't recognize the app. Use the shared URL if you need a working version right now!");
-      } else if (e.code === 'auth/popup-closed-by-user') {
-        // Silently handle
-      } else {
-        alert(`Sign-in failed: ${e.message}. Re-check your Firebase config!`);
-      }
-    }
+  const handleJoin = (u: LocalUser) => {
+    setUser(u);
+    setLanguage(u.language);
+    localStorage.setItem('gy_user', JSON.stringify(u));
   };
 
-  const logOut = async () => {
-    try { await signOut(auth); } catch (e) { console.error(e); }
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('gy_user');
   };
 
   const handlePing = async (stopId: string) => {
     if (!user || !selectedRoute) return;
-    if (!user.emailVerified) {
-      alert("Please verify your email to contribute!");
-      return;
-    }
     try {
       await addDoc(collection(db, 'pings'), {
         routeId: selectedRoute.id,
         stopId,
-        userId: user.uid,
-        userName: (user.displayName || 'Anonymous').split(' ')[0],
+        userId: 'local_' + user.name,
+        userName: user.name,
         timestamp: serverTimestamp()
       });
     } catch (err) { handleFirestoreError(err, OperationType.CREATE, 'pings'); }
@@ -509,24 +565,22 @@ export default function App() {
 
   const handleAlert = async (type: Alert['type'], message: string) => {
     if (!user || !selectedRoute) return;
-    if (!user.emailVerified) {
-      alert("Please verify your email to contribute!");
-      return;
-    }
     try {
       await addDoc(collection(db, 'alerts'), {
         routeId: selectedRoute.id,
         type,
         message,
-        userId: user.uid,
-        userName: (user.displayName || 'Anonymous').split(' ')[0],
+        userId: 'local_' + user.name,
+        userName: user.name,
         timestamp: serverTimestamp()
       });
     } catch (err) { handleFirestoreError(err, OperationType.CREATE, 'alerts'); }
   };
 
-  if (appLoading || authLoading) return <LoadingScreen />;
+  if (appLoading) return <LoadingScreen />;
+  if (!user) return <WelcomeScreen onJoin={handleJoin} />;
 
+  const t = TRANSLATIONS[language];
   const currentRoutePings = pings.filter(p => p.routeId === selectedRoute?.id);
   const latestPing = currentRoutePings[0] || null;
   
@@ -535,7 +589,6 @@ export default function App() {
     const currentStopIndex = selectedRoute.stops.findIndex(s => s.id === latestPing.stopId);
     if (currentStopIndex === -1 || currentStopIndex === selectedRoute.stops.length - 1) return null;
     
-    // Calculate for next stop
     let nextStopIndex = currentStopIndex + 1;
     let totalMinutes = selectedRoute.stops[nextStopIndex].avgTimeFromPrev;
     const pingTime = latestPing.timestamp?.toDate() || new Date();
@@ -543,7 +596,7 @@ export default function App() {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading: authLoading, signIn, logOut }}>
+    <AppContext.Provider value={{ user, language, setLanguage, logout: handleLogout }}>
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Header />
         <AlertBanner alerts={alerts} routeId={selectedRoute?.id} />
@@ -560,7 +613,7 @@ export default function App() {
             <div className="lg:col-span-7 flex flex-col gap-6">
               {selectedRoute && (
                 <>
-                  <BusMap selectedRoute={selectedRoute} latestPing={latestPing} />
+                  <BusMap selectedRoute={selectedRoute} latestPing={latestPing} language={language} />
                   <BusTimeline route={selectedRoute} latestPing={latestPing} />
                 </>
               )}
@@ -583,18 +636,18 @@ export default function App() {
                   
                   <div className="grid grid-cols-2 gap-3">
                     <button 
-                      onClick={() => handleAlert('cancel', 'Bus reported as cancelled')}
+                      onClick={() => handleAlert('cancel', t.cancelled)}
                       className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 font-black text-[10px] uppercase tracking-widest flex flex-col items-center gap-2 hover:bg-red-100 transition-all"
                     >
                       <span className="text-xl">❌</span>
-                      CANCELLED
+                      {t.cancelled}
                     </button>
                     <button 
-                      onClick={() => handleAlert('delay', 'Bus reported as delayed')}
+                      onClick={() => handleAlert('delay', t.delayed)}
                       className="p-4 bg-orange-50 border border-orange-100 rounded-xl text-orange-700 font-black text-[10px] uppercase tracking-widest flex flex-col items-center gap-2 hover:bg-orange-100 transition-all"
                     >
                       <span className="text-xl">⚠️</span>
-                      DELAYED
+                      {t.delayed}
                     </button>
                   </div>
                 </>
@@ -603,8 +656,14 @@ export default function App() {
           </div>
         </main>
         
-        <Footer />
+        <Footer onOpenPRD={() => setIsPRDOpen(true)} />
+        
+        <AnimatePresence>
+          {isPRDOpen && (
+            <PRDModal isOpen={isPRDOpen} onClose={() => setIsPRDOpen(false)} />
+          )}
+        </AnimatePresence>
       </div>
-    </AuthContext.Provider>
+    </AppContext.Provider>
   );
 }

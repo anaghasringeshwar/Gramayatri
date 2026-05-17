@@ -1,6 +1,14 @@
+export type Language = 'en' | 'kn';
+
+export interface LocalUser {
+  name: string;
+  language: Language;
+}
+
 export interface Stop {
   id: string;
   name: string;
+  nameKn?: string;
   avgTimeFromPrev: number;
   location: google.maps.LatLngLiteral;
 }
@@ -8,6 +16,7 @@ export interface Stop {
 export interface Route {
   id: string;
   name: string;
+  nameKn?: string;
   stops: Stop[];
 }
 
